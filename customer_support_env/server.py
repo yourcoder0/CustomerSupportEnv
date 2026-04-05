@@ -2,8 +2,12 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Any, Dict
 from .env.environment import CustomerSupportEnv   # ← relative import
+<<<<<<< HEAD
 from .env.models import Action    
 from fastapi import FastAPI, HTTPException, Body                # ← relative import
+=======
+from .env.models import Action                    # ← relative import
+>>>>>>> 3784d55cd145a1a194519230be687956098e1b51
 
 app = FastAPI(
     title="CustomerSupportEnv",
@@ -28,14 +32,24 @@ def health():
 
 
 @app.post("/reset")
+<<<<<<< HEAD
 def reset(req: Optional[ResetRequest] = Body(default=None)):
     task_id = req.task_id if req else None
     try:
         obs = env.reset(task_id)
+=======
+def reset(req: ResetRequest):
+    try:
+        obs = env.reset(req.task_id)
+>>>>>>> 3784d55cd145a1a194519230be687956098e1b51
         return obs.model_dump()
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3784d55cd145a1a194519230be687956098e1b51
 @app.post("/step")
 def step(req: StepRequest):
     try:

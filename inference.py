@@ -1011,6 +1011,75 @@ def get_smart_fallback(obs_dict: Dict[str, Any]) -> Dict[str, Any]:
 
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+#  NEW: Reasoning Layer
+# ---------------------------------------------------------------------------
+
+def analyze_context(obs_dict: Dict[str, Any]) -> Dict[str, Any]:
+    ticket = obs_dict.get("ticket", {})
+    body = (ticket.get("body", "") + " " + ticket.get("subject", "")).lower()
+
+    signals = {
+        "is_refund": any(k in body for k in ["refund", "chargeback"]),
+        "is_invoice": any(k in body for k in ["invoice", "receipt"]),
+        "is_security": any(k in body for k in ["breach", "gdpr", "compromised"]),
+        "is_angry": any(k in body for k in ["angry", "frustrated", "unacceptable"]),
+    }
+
+    risk_level = "low"
+    if signals["is_security"]:
+        risk_level = "critical"
+    elif signals["is_refund"] or signals["is_angry"]:
+        risk_level = "high"
+    confidence = 0.5
+
+    if signals["is_security"]:
+        confidence = 0.95
+    elif signals["is_refund"] or signals["is_invoice"]:
+        confidence = 0.85
+    elif any(signals.values()):
+        confidence = 0.7
+
+    return {
+        "signals": signals,
+        "risk_level": risk_level,
+        "confidence": confidence,
+        "customer_tier": ticket.get("customer_tier", "unknown"),
+        "already_classified": ticket.get("assigned_category") is not None
+}
+
+
+def decide_strategy(context: Dict[str, Any]) -> Dict[str, Any]:
+    signals = context["signals"]
+    confidence = context["confidence"]
+
+    if confidence < 0.6:
+        return {"strategy": "clarify_first"}
+
+    if signals["is_security"]:
+        return {"strategy": "fast_track_escalation"}
+
+    if signals["is_refund"]:
+        return {"strategy": "policy_enforced_response"}
+
+    if signals["is_invoice"]:
+        return {"strategy": "direct_resolution"}
+
+    return {"strategy": "general_support"}
+
+
+def validate_action(action: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+    signals = context["signals"]
+
+    if signals["is_security"]:
+        if action.get("action_type") == "escalate":
+            action["escalation_tier"] = "engineering"
+
+    if signals["is_refund"] and context["customer_tier"] == "free":
+        if action.get("action_type") == "resolve":
+            action["resolution_code"] = "wont_fix"
+
+    return action
 
 # LLM action generation
 
@@ -1075,7 +1144,21 @@ def generate_action(
 
 
 
+    
+    context = analyze_context(obs_dict)
+    strategy = decide_strategy(context)
+
     prompt = build_user_prompt(obs_dict, step)
+
+    prompt += f"""
+
+    AGENT INTERNAL CONTEXT:
+    - signals: {context['signals']}
+    - risk_level: {context['risk_level']}
+    - strategy: {strategy['strategy']}
+
+    Use this to guide your decision.
+    """
 
 
 
@@ -1456,7 +1539,48 @@ def run_task(
         # --- Generate action ---
 
 
+        
+        context = analyze_context(obs_dict)
+        strategy = decide_strategy(context)
+
         raw_action = generate_action(client, obs_dict, step_num, mock=mock)
+
+        # ✅ NEW: validate action
+        raw_action = validate_action(raw_action, context)
+
+        # 🚀 Adaptive override (uncertainty handling)
+        if context["confidence"] < 0.6 and not context["already_classified"]:
+            raw_action = {
+                "action_type": "request_info",
+                "reply_text": "Could you please provide more details so I can assist you better?"
+    }
+
+        # ✅ attach reasoning metadata (for logs)
+        reason = []
+
+        if context["signals"]["is_security"]:
+            reason.append("Detected security breach keywords")
+
+        if context["signals"]["is_refund"]:
+            reason.append("Refund intent detected")
+
+        if context["signals"]["is_invoice"]:
+            reason.append("Invoice-related query")
+
+        if context["confidence"] > 0.9:
+            reason.append("High confidence decision")
+
+        if context["confidence"] < 0.6:
+            reason.append("Low confidence → clarification needed")
+
+        raw_action["_meta"] = {
+            "strategy": strategy["strategy"],
+            "risk": context["risk_level"],
+            "confidence": context["confidence"],
+            "reason": reason
+}
+
+        action = parse_action(raw_action)
 
 
         action     = parse_action(raw_action)

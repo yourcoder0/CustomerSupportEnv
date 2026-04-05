@@ -15,10 +15,14 @@ dependencies = [
     "uvicorn[standard]>=0.29.0",
     "openai>=1.30.0",
     "python-dotenv>=1.0.0",
+    "openenv-core>=0.2.0",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0.0"]
+
+[project.scripts]
+serve = "customer_support_env.server:app"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -1,0 +1,165 @@
+# openenv.yaml — CustomerSupportEnv
+# Full OpenEnv spec metadata
+
+env_id: customer-support-ops-v1
+version: "1.0.0"
+display_name: "Autonomous Customer Support Ops"
+description: >
+  A realistic customer support queue simulation where an AI agent
+  must triage incoming tickets, apply business policies, draft responses,
+  and resolve or escalate cases — all while respecting customer tier
+  constraints, SLA windows, and compliance rules (GDPR, chargeback policy).
+author: "OpenEnv Hackathon Submission"
+tags:
+  - customer-support
+  - nlp
+  - policy-compliance
+  - sla
+  - gdpr
+  - openenv
+  - real-world
+
+# ── Environment interface ───────────────────────────────────────────────────
+interface:
+  reset_endpoint:  /reset
+  step_endpoint:   /step
+  state_endpoint:  /state
+  tasks_endpoint:  /tasks
+  health_endpoint: /
+
+# ── Observation space ───────────────────────────────────────────────────────
+observation_space:
+  type: structured
+  schema: Observation
+  fields:
+    task_id:              {type: string}
+    step:                 {type: integer}
+    max_steps:            {type: integer}
+    ticket:               {type: object, ref: Ticket}
+    available_macros:     {type: array, items: string}
+    available_categories: {type: array, items: string}
+    knowledge_base:       {type: object, description: "Key-value policy/KB lookup"}
+    last_action_result:   {type: string, nullable: true}
+    done:                 {type: boolean}
+    info:                 {type: object}
+
+# ── Action space ────────────────────────────────────────────────────────────
+action_space:
+  type: structured
+  schema: Action
+  action_types:
+    - classify
+    - draft_reply
+    - escalate
+    - resolve
+    - request_info
+    - apply_macro
+    - tag
+    - summarize
+  terminal_actions:
+    - resolve
+    - escalate
+
+# ── Reward ──────────────────────────────────────────────────────────────────
+reward:
+  type: continuous
+  range: [0.0, 1.0]
+  shaped: true
+  components:
+    classification_accuracy: {weight: 0.20, description: "Correct issue category"}
+    priority_accuracy:        {weight: 0.10, description: "Correct urgency level"}
+    reply_quality:            {weight: 0.25, description: "Rubric-scored customer reply"}
+    resolution_appropriateness: {weight: 0.20, description: "Right resolution path"}
+    sla_compliance:           {weight: 0.10, description: "Action within SLA budget"}
+    policy_compliance:        {weight: 0.10, description: "Business policy adherence"}
+    efficiency_bonus:         {weight: 0.05, description: "Early-resolution bonus"}
+  penalties:
+    wrong_escalation_path:   -0.10
+    missing_required_fields: -0.05
+    contradictory_actions:   -0.15
+    spam_reply:              -0.20
+
+# ── Tasks ───────────────────────────────────────────────────────────────────
+tasks:
+  - task_id: task_easy_classify_reply
+    difficulty: easy
+    max_steps: 3
+    pass_threshold: 0.60
+    baseline_expected_score: 0.75
+    description: >
+      Pro-tier customer cannot find their invoice.
+      Agent must classify, draft a helpful reply with self-serve instructions,
+      and resolve the ticket.
+    objectives:
+      - Classify as billing/invoice with priority low
+      - Draft reply mentioning download location
+      - Resolve with code "solved"
+
+  - task_id: task_medium_refund_policy
+    difficulty: medium
+    max_steps: 5
+    pass_threshold: 0.55
+    baseline_expected_score: 0.60
+    description: >
+      Free-tier customer demands refund 45 days after purchase.
+      Policy: free tier ineligible; >30 days ineligible.
+      Agent must deny politely, offer credit, and resolve as wont_fix.
+    objectives:
+      - Classify as billing/refund with priority high
+      - Reply must NOT promise a refund
+      - Reply SHOULD offer account credit
+      - Resolve with code "wont_fix"
+
+  - task_id: task_hard_security_escalation
+    difficulty: hard
+    max_steps: 6
+    pass_threshold: 0.50
+    baseline_expected_score: 0.45
+    description: >
+      Enterprise customer reports potential GDPR data breach.
+      Agent must classify as security/breach (critical priority),
+      escalate ONLY to engineering, acknowledge GDPR Article 33,
+      produce an internal summary, and tag correctly.
+    objectives:    
+      - Classify as security/breach with critical priority
+      - Escalate to engineering within step 2 (critical SLA)
+      - Escalation reason must mention GDPR / 72-hour notification
+      - First response/escalation within step 2 (critical SLA)
+
+    optimal_sequence: ["classify", "escalate"]
+    note: "Escalate is terminal. All required reasoning must be included in escalation_reason."
+
+# ── Episode boundaries ──────────────────────────────────────────────────────
+episode:
+  termination_conditions:
+    - action_type in [resolve, escalate]
+    - step >= max_steps
+  max_steps_per_task:
+    task_easy_classify_reply:       3
+    task_medium_refund_policy:      5
+    task_hard_security_escalation:  6
+
+# ── Runtime requirements ─────────────────────────────────────────────────────
+runtime:
+  max_inference_time_minutes: 20
+  recommended_vcpu: 2
+  recommended_memory_gb: 8
+  python_version: ">=3.10"
+  framework: fastapi
+  port: 7860
+
+# ── Dependencies ─────────────────────────────────────────────────────────────
+dependencies:
+  - fastapi>=0.110.0
+  - uvicorn[standard]>=0.29.0
+  - pydantic>=2.5.0
+  - openai>=1.30.0
+  - python-dotenv>=1.0.0
+
+# ── Validation ───────────────────────────────────────────────────────────────
+validation:
+  grader_score_range: [0.0, 1.0]
+  deterministic: true
+  graders_use_llm: false
+  baseline_script: inference.py
+  reproducible: true

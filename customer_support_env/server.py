@@ -16,7 +16,11 @@ class StepRequest(BaseModel):
 
 @app.get("/")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "env_id": "customer-support-ops-v1",
+        "version": "1.0.0"
+    }
 
 
 @app.post("/reset")

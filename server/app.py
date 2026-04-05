@@ -1,7 +1,11 @@
 # server/app.py — OpenEnv multi-mode entry point
-# This file is required by the openenv validator.
-# It re-exports the FastAPI app from the main server module.
-
+import uvicorn
 from customer_support_env.server import app
 
-__all__ = ["app"]
+
+def main():
+    uvicorn.run(app, host="0.0.0.0", port=7860)
+
+
+if __name__ == "__main__":
+    main()

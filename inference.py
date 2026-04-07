@@ -1464,40 +1464,12 @@ def log_end(
 
 
 
-def run_task(
-
-
-    env: CustomerSupportEnv,
-
-
-    client: Optional[OpenAI],
-
-
-    task_id: str,
-
-
-    mock: bool = False,
-
-
-) -> Dict[str, Any]:
-
-
-    """Run one full episode. Returns summary dict."""
-
-
+#  (log_start is FIRST — always prints before anything can crash)
+def run_task(env, client, task_id, mock=False):
     global _quota_exhausted
-
-
-    task_def = get_task(task_id)
-
-
     mode = "mock" if (mock or _quota_exhausted or client is None) else "live"
-
-
-
-
-
-    log_start(task_id, MODEL_NAME, API_BASE_URL, mode)
+    log_start(task_id, MODEL_NAME, API_BASE_URL, mode)  # ← MOVED HERE FIRST
+    task_def = get_task(task_id)
 
 
 
@@ -1580,10 +1552,8 @@ def run_task(
             "reason": reason
 }
 
-        action = parse_action(raw_action)
-
-
-        action     = parse_action(raw_action)
+        clean_action = {k: v for k, v in raw_action.items() if not k.startswith("_")}
+        action = parse_action(clean_action)
 
 
 

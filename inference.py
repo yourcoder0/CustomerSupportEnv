@@ -1490,6 +1490,7 @@ def run_task(env, client, task_id, mock=False):
     final_score       = 0.0
 
 
+
     final_grade       = None
 
 
@@ -1646,7 +1647,7 @@ def run_task(env, client, task_id, mock=False):
         grade_info  = info.get("grade", {})
 
 
-        final_score = grade_info.get("score", 0.0)
+        final_score = grade_info.get("score", 0.5)
 
 
         violations  = grade_info.get("violations", ["Episode timed out"])

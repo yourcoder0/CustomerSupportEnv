@@ -1351,7 +1351,7 @@ def log_end(passed: bool, steps: int, final_score: float, rewards: List[float]) 
 def run_task(env, client, task_id, mock=False):
     global _quota_exhausted
     mode = "mock" if (mock or _quota_exhausted or client is None) else "live"
-    log_start(task_id, MODEL_NAME, API_BASE_URL, mode)  # ← MOVED HERE FIRST
+    log_start(task_id, MODEL_NAME)  # ← MOVED HERE FIRST
     task_def = get_task(task_id)
 
 

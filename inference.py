@@ -1314,136 +1314,19 @@ def parse_action(raw: Dict[str, Any]) -> Action:
 
 
 
-def log_start(task_id: str, model: str, api_base: str, mode: str) -> None:
-
-
-    print(json.dumps({
-
-
-        "event":    "[START]",
-
-
-        "task_id":  task_id,
-
-
-        "model":    model,
-
-
-        "api_base": api_base,
-
-
-        "mode":     mode,
-
-
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-
-
-    }), flush=True)
-
-
-
-
-
-
-
-
-def log_step(
-
-
-    task_id: str, step: int, action: Dict[str, Any],
-
-
-    reward: float, done: bool, info: Dict[str, Any],
-
-
-) -> None:
-
-
-    print(json.dumps({
-
-
-        "event":   "[STEP]",
-
-
-        "task_id": task_id,
-
-
-        "step":    step,
-
-
-        "action":  action,
-
-
-        "reward":  round(reward, 4),
-
-
-        "done":    done,
-
-
-        "info": {
-
-
-            "action_feedback":  info.get("action_feedback"),
-
-
-            "episode_complete": info.get("episode_complete", False),
-
-
-            "final_grade":      info.get("final_grade"),
-
-
-        },
-
-
-    }), flush=True)
-
-
-
-
-
-
-
-
-def log_end(
-
-
-    task_id: str, total_steps: int, final_score: float,
-
-
-    cumulative_reward: float, passed: bool, violations: List[str],
-
-
-) -> None:
-
-
-    print(json.dumps({
-
-
-        "event":             "[END]",
-
-
-        "task_id":           task_id,
-
-
-        "total_steps":       total_steps,
-
-
-        "final_score":       round(final_score, 4),
-
-
-        "cumulative_reward": round(cumulative_reward, 4),
-
-
-        "passed":            passed,
-
-
-        "violations":        violations,
-
-
-        "timestamp":         time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-
-
-    }), flush=True)
+def log_start(task_id: str, model: str) -> None:
+    print(f"[START] task={task_id} env=customer-support model={model}", flush=True)
+
+def log_step(step: int, action: dict, reward: float, done: bool, info: dict) -> None:
+    action_str = action.get("action_type", "unknown")
+    error = info.get("action_error") or "null"
+    done_str = "true" if done else "false"
+    print(f"[STEP] step={step} action={action_str} reward={reward:.2f} done={done_str} error={error}", flush=True)
+
+def log_end(passed: bool, steps: int, final_score: float, rewards: List[float]) -> None:
+    success_str = "true" if passed else "false"
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={success_str} steps={steps} score={final_score:.3f} rewards={rewards_str}", flush=True)
 
 
 
